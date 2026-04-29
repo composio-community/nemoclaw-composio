@@ -3109,7 +3109,7 @@ function formatOnboardConfigSummary({
   const webSearch =
     webSearchConfig && webSearchConfig.fetchEnabled === true ? "enabled" : "disabled";
   const composioTools =
-    composioConfig?.enabled === true ? "enabled (Tool Router discovery)" : "disabled";
+    composioConfig?.enabled === true ? "enabled (Composio integration)" : "disabled";
   const apiKeyLine = credentialEnv
     ? `  API key:       ${credentialEnv} (stored in ~/.nemoclaw/credentials.json)`
     : `  API key:       (not required for ${provider ?? "this provider"})`;

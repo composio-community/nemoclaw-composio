@@ -15,6 +15,6 @@ nemoclaw-composio tools
 nemoclaw-composio mcp
 ```
 
-`nemoclaw-composio tools` returns Composio Tool Router meta tools. Use those meta
-tools to search for available toolkits, inspect auth/connection state, and execute
-the concrete Composio tool the user needs.
+`nemoclaw-composio tools` returns Composio integration tools. Use those tools to
+search for available toolkits, inspect auth/connection state, and execute the
+concrete Composio tool the user needs.

@@ -5953,7 +5953,7 @@ const { createSandbox } = require(${onboardPath});
     );
     assert.ok(summary.includes("enabled"), "summary includes web-search enabled");
     assert.ok(
-      summary.includes("Composio:      enabled (Tool Router discovery)"),
+      summary.includes("Composio:      enabled (Composio integration)"),
       "summary includes Composio",
     );
     assert.ok(summary.includes("telegram, slack"), "summary lists enabled channels");

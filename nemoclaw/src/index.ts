@@ -347,10 +347,10 @@ export default function register(api: OpenClawPluginApi): void {
     handler: (ctx) => handleSlashCommand(ctx, api),
   });
 
-  // 1b. Register /composio slash command — wraps the Tool Router helper.
+  // 1b. Register /composio slash command — wraps the Composio helper.
   api.registerCommand({
     name: "composio",
-    description: "Composio Tool Router (status, tools, mcp).",
+    description: "Composio integration (status, tools, mcp).",
     acceptsArgs: true,
     handler: (ctx) => slashComposio(ctx),
   });

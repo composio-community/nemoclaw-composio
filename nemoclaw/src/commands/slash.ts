@@ -9,7 +9,7 @@
  *   /nemoclaw eject    - rollback to host installation
  *   /nemoclaw shields  - show shields status (read-only)
  *   /nemoclaw config   - show sandbox config (read-only, redacted)
- *   /nemoclaw composio - inspect Composio Tool Router setup
+ *   /nemoclaw composio - inspect Composio integration setup
  *   /nemoclaw          - show help
  */
 
@@ -61,7 +61,7 @@ function slashHelp(): PluginCommandResult {
       "  `status`  - Show sandbox, blueprint, and inference state",
       "  `shields` - Show shields status (up/down, timeout, policy)",
       "  `config`  - Show sandbox configuration (credentials redacted)",
-      "  `composio` - Inspect Composio Tool Router status, tools, or MCP config",
+      "  `composio` - Inspect Composio integration status, tools, or MCP config",
       "  `eject`   - Show rollback instructions",
       "  `onboard` - Show onboarding status and instructions",
       "",

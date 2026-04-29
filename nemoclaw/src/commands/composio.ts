@@ -5,7 +5,7 @@
  * Slash command handler for `/composio`.
  *
  * Wraps the `nemoclaw-composio` helper installed in the sandbox so users can
- * inspect their Composio Tool Router session from chat without dropping to a
+ * inspect their Composio integration from chat without dropping to a
  * shell. The helper itself reads COMPOSIO_API_KEY from the sandbox env (or
  * /tmp/nemoclaw-composio-api-key) and talks to api.composio.dev.
  */
@@ -66,13 +66,13 @@ export function slashComposio(ctx: PluginCommandContext): PluginCommandResult {
 function composioHelp(): PluginCommandResult {
   return {
     text: [
-      "**Composio Tool Router**",
+      "**Composio Integration**",
       "",
       "Usage: `/composio <subcommand>`",
       "",
       "Subcommands:",
       "  `status` - Verify the API key is loaded and the session is reachable",
-      "  `tools`  - List Tool Router meta tools available to the agent",
+      "  `tools`  - List Composio tools available to the agent",
       "  `mcp`    - Show the MCP URL + headers for the current session",
       "",
       "To set or rotate the API key, re-run `nemoclaw onboard` on the host.",

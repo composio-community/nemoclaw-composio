@@ -65,7 +65,7 @@ export function registerComposioAgentTools(api: OpenClawPluginApi): void {
     definitions = loadComposioToolDefinitions();
   } catch (err) {
     api.logger.warn(
-      `[Composio] Could not load Tool Router schemas: ${
+      `[Composio] Could not load integration schemas: ${
         err instanceof Error ? err.message : String(err)
       }`,
     );
@@ -93,5 +93,5 @@ export function registerComposioAgentTools(api: OpenClawPluginApi): void {
     });
   }
 
-  api.logger.info(`[Composio] Registered ${String(definitions.length)} Tool Router tools`);
+  api.logger.info(`[Composio] Registered ${String(definitions.length)} integration tools`);
 }
