@@ -13,6 +13,8 @@
 
 import { execFileSync } from "node:child_process";
 import { handleSlashCommand } from "./commands/slash.js";
+import { slashComposio } from "./commands/composio.js";
+import { registerComposioAgentTools } from "./composio/plugin-tools.js";
 import {
   describeOnboardEndpoint,
   describeOnboardProvider,
@@ -21,7 +23,7 @@ import {
 import { scanForSecrets, isMemoryPath } from "./security/secret-scanner.js";
 
 type PluginScalar = string | number | boolean | null | undefined;
-type PluginValue = PluginScalar | PluginRecord | PluginValue[];
+export type PluginValue = PluginScalar | PluginRecord | PluginValue[];
 type PluginRecord = { [key: string]: PluginValue };
 
 function isToolParams(value: PluginValue | object | null | undefined): value is ToolParams {
@@ -118,6 +120,20 @@ export interface PluginCommandResult {
   mediaUrls?: string[];
 }
 
+export interface PluginToolResult {
+  content: Array<{ type: "text"; text: string }>;
+}
+
+export interface PluginToolDefinition {
+  name: string;
+  description: string;
+  parameters: object;
+  execute: (
+    id: string,
+    params: { [key: string]: PluginValue },
+  ) => PluginToolResult | Promise<PluginToolResult>;
+}
+
 /** Registration shape for a slash command. */
 export interface PluginCommandDefinition {
   name: string;
@@ -194,6 +210,7 @@ export interface OpenClawPluginApi {
   pluginConfig?: OpenClawConfig;
   logger: PluginLogger;
   registerCommand: (command: PluginCommandDefinition) => void;
+  registerTool?: (tool: PluginToolDefinition, options?: { optional?: boolean }) => void;
   registerProvider: (provider: ProviderPlugin) => void;
   registerService: (service: PluginService) => void;
   resolvePath: (input: string) => string;
@@ -329,6 +346,16 @@ export default function register(api: OpenClawPluginApi): void {
     acceptsArgs: true,
     handler: (ctx) => handleSlashCommand(ctx, api),
   });
+
+  // 1b. Register /composio slash command — wraps the Tool Router helper.
+  api.registerCommand({
+    name: "composio",
+    description: "Composio Tool Router (status, tools, mcp).",
+    acceptsArgs: true,
+    handler: (ctx) => slashComposio(ctx),
+  });
+
+  registerComposioAgentTools(api);
 
   // 2. Register nvidia-nim provider — use onboard config if available
   const onboardCfg = loadOnboardConfig();

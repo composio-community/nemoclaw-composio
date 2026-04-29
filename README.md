@@ -3,7 +3,7 @@
   SPDX-License-Identifier: Apache-2.0
 -->
 
-# 🦞 NVIDIA NemoClaw: Reference Stack for Running OpenClaw in OpenShell
+# 🦞 NVIDIA NemoClaw: Reference Stack for Running OpenClaw and Composio in OpenShell
 
 <!-- start-badges -->
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue)](https://github.com/NVIDIA/NemoClaw/blob/main/LICENSE)
@@ -25,7 +25,7 @@ It installs the [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) runtime,
 > The project is shared to gather feedback and enable early experimentation.
 > We welcome issues and discussion from the community while the project evolves.
 
-NemoClaw adds guided onboarding, a hardened blueprint, state management, OpenShell-managed channel messaging, routed inference, and layered protection on top of the [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) runtime. For the full feature list, refer to [Overview](https://docs.nvidia.com/nemoclaw/latest/about/overview.html). For the system diagram, component model, and blueprint lifecycle, refer to [How It Works](https://docs.nvidia.com/nemoclaw/latest/about/how-it-works.html) and [Architecture](https://docs.nvidia.com/nemoclaw/latest/reference/architecture.html).
+NemoClaw adds guided onboarding, a hardened blueprint, state management, OpenShell-managed channel messaging, routed inference, Composio Tool Router access, and layered protection on top of the [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) runtime. For the full feature list, refer to [Overview](https://docs.nvidia.com/nemoclaw/latest/about/overview.html). For the system diagram, component model, and blueprint lifecycle, refer to [How It Works](https://docs.nvidia.com/nemoclaw/latest/about/how-it-works.html) and [Architecture](https://docs.nvidia.com/nemoclaw/latest/reference/architecture.html).
 
 ## Getting Started
 
@@ -110,6 +110,35 @@ Logs:        nemoclaw my-assistant logs --follow
 
 [INFO]  === Installation complete ===
 ```
+
+### Enable Composio Tools
+
+During onboarding, NemoClaw can enable Composio Tool Router so the sandboxed OpenClaw agent can discover and call tools across connected apps.
+When prompted, choose to enable Composio and paste a Composio API key from [Composio settings](https://platform.composio.dev/settings).
+NemoClaw stores the key with its host-side credential store, injects it into the sandbox, and enables the `composio` network policy preset.
+
+To add or rotate the key later, rerun onboarding from the host:
+
+```bash
+nemoclaw onboard --recreate-sandbox
+```
+
+After the sandbox starts, verify the integration from the OpenClaw UI:
+
+```text
+/composio status
+```
+
+Useful Composio commands:
+
+| Command | Purpose |
+|---------|---------|
+| `/composio status` | Check that the API key is loaded and the Tool Router session is reachable. |
+| `/composio tools` | List the Tool Router meta tools exposed to the agent. |
+| `/composio mcp` | Show the current session MCP URL and redacted auth header names. |
+
+In chat, ask the agent to use Composio for an app workflow, such as searching for available GitHub tools or managing a connection.
+The agent should first call the Composio search tool, then use the returned plan and connection guidance before executing app tools.
 
 ### Chat with the Agent
 

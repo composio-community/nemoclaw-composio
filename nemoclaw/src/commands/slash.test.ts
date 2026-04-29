@@ -24,6 +24,12 @@ vi.mock("./config-show.js", () => ({
   slashConfigShow: vi.fn(() => ({ text: "**NemoClaw Config**" })),
 }));
 
+vi.mock("./composio.js", () => ({
+  slashComposio: vi.fn((ctx: PluginCommandContext) => ({
+    text: `**Composio** ${ctx.args ?? ""}`.trim(),
+  })),
+}));
+
 import { handleSlashCommand } from "./slash.js";
 import { loadState } from "../blueprint/state.js";
 import {
@@ -101,6 +107,7 @@ describe("commands/slash", () => {
       expect(result.text).toContain("status");
       expect(result.text).toContain("shields");
       expect(result.text).toContain("config");
+      expect(result.text).toContain("composio");
       expect(result.text).toContain("eject");
       expect(result.text).toContain("onboard");
     });
@@ -130,6 +137,18 @@ describe("commands/slash", () => {
     it("routes to config show handler", () => {
       const result = handleSlashCommand(makeCtx("config"), makeApi());
       expect(result.text).toContain("Config");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // composio (routing)
+  // -------------------------------------------------------------------------
+
+  describe("composio", () => {
+    it("routes to Composio handler with nested args", () => {
+      const result = handleSlashCommand(makeCtx("composio help"), makeApi());
+      expect(result.text).toContain("Composio");
+      expect(result.text).toContain("help");
     });
   });
 

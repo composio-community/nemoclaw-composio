@@ -129,6 +129,16 @@ describe("generate-openclaw-config.py: config generation", () => {
     expect(config.tools?.web).toBeUndefined();
   });
 
+  it("enables Composio helper config", () => {
+    const config = runConfigScript({
+      NEMOCLAW_COMPOSIO_ENABLED: "1",
+    });
+    expect(config.tools?.composio).toEqual({
+      enabled: true,
+      command: "nemoclaw-composio",
+    });
+  });
+
   it("propagates agent timeout", () => {
     const config = runConfigScript({ NEMOCLAW_AGENT_TIMEOUT: "300" });
     expect(config.agents.defaults.timeoutSeconds).toBe(300);

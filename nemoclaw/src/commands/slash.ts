@@ -9,6 +9,7 @@
  *   /nemoclaw eject    - rollback to host installation
  *   /nemoclaw shields  - show shields status (read-only)
  *   /nemoclaw config   - show sandbox config (read-only, redacted)
+ *   /nemoclaw composio - inspect Composio Tool Router setup
  *   /nemoclaw          - show help
  */
 
@@ -21,6 +22,7 @@ import {
 } from "../onboard/config.js";
 import { slashShieldsStatus } from "./shields-status.js";
 import { slashConfigShow } from "./config-show.js";
+import { slashComposio } from "./composio.js";
 
 export function handleSlashCommand(
   ctx: PluginCommandContext,
@@ -39,6 +41,10 @@ export function handleSlashCommand(
       return slashShieldsStatus();
     case "config":
       return slashConfigShow();
+    case "composio": {
+      const composioArgs = ctx.args?.trim().split(/\s+/).slice(1).join(" ") ?? "";
+      return slashComposio({ ...ctx, args: composioArgs });
+    }
     default:
       return slashHelp();
   }
@@ -55,6 +61,7 @@ function slashHelp(): PluginCommandResult {
       "  `status`  - Show sandbox, blueprint, and inference state",
       "  `shields` - Show shields status (up/down, timeout, policy)",
       "  `config`  - Show sandbox configuration (credentials redacted)",
+      "  `composio` - Inspect Composio Tool Router status, tools, or MCP config",
       "  `eject`   - Show rollback instructions",
       "  `onboard` - Show onboarding status and instructions",
       "",

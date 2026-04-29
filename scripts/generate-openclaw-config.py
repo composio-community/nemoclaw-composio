@@ -30,6 +30,7 @@ Environment variables:
     NEMOCLAW_PROXY_HOST                 Egress proxy host (default: 10.200.0.1)
     NEMOCLAW_PROXY_PORT                 Egress proxy port (default: 3128)
     NEMOCLAW_WEB_SEARCH_ENABLED         Set to "1" to enable web search tools
+    NEMOCLAW_COMPOSIO_ENABLED           Set to "1" to enable Composio helper config
 """
 
 from __future__ import annotations
@@ -225,6 +226,13 @@ def build_config(env: dict | None = None) -> dict:
                 },
                 "fetch": {"enabled": True},
             }
+        }
+
+    if env.get("NEMOCLAW_COMPOSIO_ENABLED", "") == "1":
+        tools = config.setdefault("tools", {})
+        tools["composio"] = {
+            "enabled": True,
+            "command": "nemoclaw-composio",
         }
 
     return config

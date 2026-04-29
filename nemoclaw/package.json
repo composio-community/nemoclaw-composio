@@ -22,6 +22,7 @@
     "clean": "rm -rf dist/"
   },
   "dependencies": {
+    "@composio/core": "^0.8.0",
     "commander": "^13.1.0",
     "execa": "^9.6.1",
     "json5": "^2.2.3",

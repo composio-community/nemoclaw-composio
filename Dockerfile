@@ -193,6 +193,7 @@ RUN mkdir -p /sandbox/.nemoclaw/blueprints/0.1.0 \
 COPY scripts/lib/sandbox-init.sh /usr/local/lib/nemoclaw/sandbox-init.sh
 COPY scripts/nemoclaw-start.sh /usr/local/bin/nemoclaw-start
 COPY scripts/generate-openclaw-config.py /usr/local/lib/nemoclaw/generate-openclaw-config.py
+COPY scripts/composio-agent-instructions.md /usr/local/lib/nemoclaw/composio-agent-instructions.md
 RUN chmod 755 /usr/local/bin/nemoclaw-start /usr/local/lib/nemoclaw/sandbox-init.sh
 
 # Build args for config that varies per deployment.
@@ -249,6 +250,9 @@ ARG NEMOCLAW_PROXY_PORT=3128
 # The actual API key is injected at runtime via openshell:resolve:env, never
 # baked into the image.
 ARG NEMOCLAW_WEB_SEARCH_ENABLED=0
+# Non-secret Composio configuration. The actual COMPOSIO_API_KEY is passed at
+# sandbox runtime by onboard and is never baked into the image.
+ARG NEMOCLAW_COMPOSIO_ENABLED=0
 
 # SECURITY: Promote build-args to env vars so the Python script reads them
 # via os.environ, never via string interpolation into Python source code.
@@ -271,7 +275,8 @@ ENV NEMOCLAW_MODEL=${NEMOCLAW_MODEL} \
     NEMOCLAW_DISABLE_DEVICE_AUTH=${NEMOCLAW_DISABLE_DEVICE_AUTH} \
     NEMOCLAW_PROXY_HOST=${NEMOCLAW_PROXY_HOST} \
     NEMOCLAW_PROXY_PORT=${NEMOCLAW_PROXY_PORT} \
-    NEMOCLAW_WEB_SEARCH_ENABLED=${NEMOCLAW_WEB_SEARCH_ENABLED}
+    NEMOCLAW_WEB_SEARCH_ENABLED=${NEMOCLAW_WEB_SEARCH_ENABLED} \
+    NEMOCLAW_COMPOSIO_ENABLED=${NEMOCLAW_COMPOSIO_ENABLED}
 
 WORKDIR /sandbox
 USER sandbox
@@ -299,6 +304,15 @@ RUN python3 /usr/local/lib/nemoclaw/generate-openclaw-config.py
 # Install NemoClaw plugin into OpenClaw
 RUN openclaw doctor --fix > /dev/null 2>&1 || true \
     && openclaw plugins install /opt/nemoclaw > /dev/null 2>&1 || true
+
+# Install the SDK-backed Composio helper exposed during onboarding.
+USER root
+RUN printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'exec node /opt/nemoclaw/dist/composio/runner.js "$@"' \
+        > /usr/local/bin/nemoclaw-composio \
+    && chmod 755 /usr/local/bin/nemoclaw-composio
+USER sandbox
 
 # Inject gateway auth token into openclaw.json.
 # NEMOCLAW_BUILD_ID busts the Docker cache so each image gets a unique token.
@@ -352,6 +366,18 @@ RUN mkdir -p /sandbox/.openclaw-data/logs \
         rm -rf /sandbox/.openclaw-data/workspace/media; \
     fi \
     && ln -sfn /sandbox/.openclaw-data/media /sandbox/.openclaw-data/workspace/media
+
+# Tell OpenClaw agents about the preconfigured Composio helper. The agent reads
+# workspace guidance, while the API key remains injected through sandbox env.
+RUN if [ "${NEMOCLAW_COMPOSIO_ENABLED}" = "1" ]; then \
+        mkdir -p /sandbox/.openclaw-data/workspace; \
+        if [ -s /sandbox/.openclaw-data/workspace/AGENTS.md ]; then \
+            printf '\n\n' >> /sandbox/.openclaw-data/workspace/AGENTS.md; \
+        fi; \
+        cat /usr/local/lib/nemoclaw/composio-agent-instructions.md >> /sandbox/.openclaw-data/workspace/AGENTS.md; \
+        chown sandbox:sandbox /sandbox/.openclaw-data/workspace/AGENTS.md; \
+        chmod 600 /sandbox/.openclaw-data/workspace/AGENTS.md; \
+    fi
 
 # Ensure exec approvals path compatibility when using a stale published base
 # image that still points to ~/.openclaw/exec-approvals.json.

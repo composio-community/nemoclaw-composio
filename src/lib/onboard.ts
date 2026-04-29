@@ -156,6 +156,7 @@ const providerModels: typeof import("./provider-models") = require("./provider-m
 const sandboxCreateStream: typeof import("./sandbox-create-stream") = require("./sandbox-create-stream");
 const validationRecovery: typeof import("./validation-recovery") = require("./validation-recovery");
 const webSearch: typeof import("./web-search") = require("./web-search");
+const composio: typeof import("./composio") = require("./composio");
 
 import { listChannels } from "./sandbox-channels";
 import type { AgentDefinition } from "./agent-defs";
@@ -170,6 +171,7 @@ import type { SandboxCreateFailure, ValidationClassification } from "./validatio
 import type { TierDefinition, TierPreset } from "./tiers";
 import type { StreamSandboxCreateResult } from "./sandbox-create-stream";
 import type { WebSearchConfig } from "./web-search";
+import type { ComposioConfig } from "./composio";
 import type {
   ModelCatalogFetchResult,
   ModelValidationResult,
@@ -1268,6 +1270,52 @@ async function configureWebSearch(
   return { fetchEnabled: true };
 }
 
+async function promptComposioApiKey(): Promise<string> {
+  console.log("");
+  console.log("  Get your Composio API key from: https://platform.composio.dev");
+  console.log("");
+
+  while (true) {
+    const key = normalizeCredentialValue(await prompt("  Composio API key: ", { secret: true }));
+    if (!key) {
+      console.error("  Composio API key is required.");
+      continue;
+    }
+    return key;
+  }
+}
+
+async function configureComposio(
+  existingConfig: ComposioConfig | null = null,
+): Promise<ComposioConfig | null> {
+  if (existingConfig?.enabled) return existingConfig;
+
+  if (isNonInteractive()) {
+    const apiKey =
+      getCredential(composio.COMPOSIO_API_KEY_ENV) ||
+      normalizeCredentialValue(process.env[composio.COMPOSIO_API_KEY_ENV]);
+    if (!apiKey) return null;
+    saveCredential(composio.COMPOSIO_API_KEY_ENV, apiKey);
+    process.env[composio.COMPOSIO_API_KEY_ENV] = apiKey;
+    note("  [non-interactive] Composio SDK integration requested.");
+    return { enabled: true };
+  }
+
+  const enableAnswer = await prompt("  Enable Composio SDK tools? [y/N]: ");
+  if (!isAffirmativeAnswer(enableAnswer)) return null;
+
+  let apiKey = getCredential(composio.COMPOSIO_API_KEY_ENV);
+  if (!apiKey) {
+    apiKey = await promptComposioApiKey();
+  }
+  saveCredential(composio.COMPOSIO_API_KEY_ENV, apiKey);
+  process.env[composio.COMPOSIO_API_KEY_ENV] = apiKey;
+
+  console.log("  ✓ Enabled Composio SDK tools");
+  console.log("");
+  return { enabled: true };
+}
+
 // getSandboxInferenceConfig — moved to onboard-providers.ts
 
 // Shared validators for NEMOCLAW_PROXY_HOST / NEMOCLAW_PROXY_PORT.
@@ -1302,6 +1350,7 @@ function patchStagedDockerfile(
   messagingAllowedIds: LooseObject = {},
   discordGuilds: LooseObject = {},
   baseImageRef: string | null = null,
+  composioConfig: ComposioConfig | null = null,
 ) {
   const { providerKey, primaryModelRef, inferenceBaseUrl, inferenceApi, inferenceCompat } =
     getSandboxInferenceConfig(model, provider, preferredInferenceApi);
@@ -1418,6 +1467,10 @@ function patchStagedDockerfile(
   dockerfile = dockerfile.replace(
     /^ARG NEMOCLAW_WEB_SEARCH_ENABLED=.*$/m,
     `ARG NEMOCLAW_WEB_SEARCH_ENABLED=${webSearchConfig ? "1" : "0"}`,
+  );
+  dockerfile = dockerfile.replace(
+    /^ARG NEMOCLAW_COMPOSIO_ENABLED=.*$/m,
+    `ARG NEMOCLAW_COMPOSIO_ENABLED=${composioConfig?.enabled ? "1" : "0"}`,
   );
   // Onboard flow expects immediate dashboard access without device pairing,
   // so disable device auth for images built during onboard (see #1217).
@@ -3020,6 +3073,7 @@ type OnboardConfigSummary = {
   model: string | null;
   credentialEnv?: string | null;
   webSearchConfig?: WebSearchConfig | null;
+  composioConfig?: ComposioConfig | null;
   enabledChannels?: string[] | null;
   sandboxName: string;
   notes?: string[] | null;
@@ -3042,6 +3096,7 @@ function formatOnboardConfigSummary({
   model,
   credentialEnv = null,
   webSearchConfig = null,
+  composioConfig = null,
   enabledChannels = null,
   sandboxName,
   notes = [],
@@ -3053,6 +3108,8 @@ function formatOnboardConfigSummary({
       : "none";
   const webSearch =
     webSearchConfig && webSearchConfig.fetchEnabled === true ? "enabled" : "disabled";
+  const composioTools =
+    composioConfig?.enabled === true ? "enabled (Tool Router discovery)" : "disabled";
   const apiKeyLine = credentialEnv
     ? `  API key:       ${credentialEnv} (stored in ~/.nemoclaw/credentials.json)`
     : `  API key:       (not required for ${provider ?? "this provider"})`;
@@ -3068,6 +3125,7 @@ function formatOnboardConfigSummary({
     `  Model:         ${model ?? "(unset)"}`,
     apiKeyLine,
     `  Web search:    ${webSearch}`,
+    `  Composio:      ${composioTools}`,
     `  Messaging:     ${messaging}`,
     `  Sandbox name:  ${sandboxName}`,
     ...noteLines,
@@ -3087,6 +3145,7 @@ async function createSandbox(
   fromDockerfile: string | null = null,
   agent: AgentDefinition | null = null,
   dangerouslySkipPermissions = false,
+  composioConfig: ComposioConfig | null = null,
 ) {
   step(6, 8, "Creating sandbox");
 
@@ -3599,6 +3658,7 @@ async function createSandbox(
     messagingAllowedIds,
     discordGuilds,
     resolved ? resolved.ref : null,
+    composioConfig,
   );
   // Only pass non-sensitive env vars to the sandbox. Credentials flow through
   // OpenShell providers — the gateway injects them as placeholders and the L7
@@ -3649,6 +3709,13 @@ async function createSandbox(
       getCredential(webSearch.BRAVE_API_KEY_ENV) || process.env[webSearch.BRAVE_API_KEY_ENV];
     if (braveKey) {
       envArgs.push(formatEnvAssignment(webSearch.BRAVE_API_KEY_ENV, braveKey));
+    }
+  }
+  if (composioConfig?.enabled) {
+    const composioKey =
+      getCredential(composio.COMPOSIO_API_KEY_ENV) || process.env[composio.COMPOSIO_API_KEY_ENV];
+    if (composioKey) {
+      envArgs.push(formatEnvAssignment(composio.COMPOSIO_API_KEY_ENV, composioKey));
     }
   }
   // Slack Socket Mode requires both tokens in the container env so the baked
@@ -5161,10 +5228,12 @@ async function setupMessagingChannels(): Promise<string[]> {
 function getSuggestedPolicyPresets({
   enabledChannels = null,
   webSearchConfig = null,
+  composioConfig = null,
   provider = null,
 }: {
   enabledChannels?: string[] | null;
   webSearchConfig?: WebSearchConfig | null;
+  composioConfig?: ComposioConfig | null;
   provider?: string | null;
 } = {}): string[] {
   const suggestions = ["pypi", "npm"];
@@ -5193,6 +5262,7 @@ function getSuggestedPolicyPresets({
   maybeSuggestMessagingPreset("discord", "DISCORD_BOT_TOKEN");
 
   if (webSearchConfig) suggestions.push("brave");
+  if (composioConfig?.enabled) suggestions.push("composio");
 
   return suggestions;
 }
@@ -5809,11 +5879,17 @@ function computeSetupPresetSuggestions(
   options: {
     enabledChannels?: string[] | null;
     webSearchConfig?: WebSearchConfig | null;
+    composioConfig?: ComposioConfig | null;
     provider?: string | null;
     knownPresetNames?: string[] | null;
   } = {},
 ): string[] {
-  const { enabledChannels = null, webSearchConfig = null, provider = null } = options;
+  const {
+    enabledChannels = null,
+    webSearchConfig = null,
+    composioConfig = null,
+    provider = null,
+  } = options;
   const known = Array.isArray(options.knownPresetNames) ? new Set(options.knownPresetNames) : null;
   const suggestions = tiers.resolveTierPresets(tierName).map((p) => p.name);
   const add = (name: string) => {
@@ -5822,6 +5898,7 @@ function computeSetupPresetSuggestions(
     suggestions.push(name);
   };
   if (webSearchConfig) add("brave");
+  if (composioConfig?.enabled) add("composio");
   if (provider && LOCAL_INFERENCE_PROVIDERS.includes(provider)) add("local-inference");
   if (Array.isArray(enabledChannels)) {
     for (const channel of enabledChannels) add(channel);
@@ -5836,6 +5913,7 @@ async function setupPoliciesWithSelection(
     selectedPresets?: string[] | null;
     onSelection?: ((policyPresets: string[]) => void) | null;
     webSearchConfig?: WebSearchConfig | null;
+    composioConfig?: ComposioConfig | null;
     enabledChannels?: string[] | null;
     provider?: string | null;
     knownPresetNames?: string[];
@@ -5844,6 +5922,7 @@ async function setupPoliciesWithSelection(
   const selectedPresets = Array.isArray(options.selectedPresets) ? options.selectedPresets : null;
   const onSelection = typeof options.onSelection === "function" ? options.onSelection : null;
   const webSearchConfig = options.webSearchConfig || null;
+  const composioConfig = options.composioConfig || null;
   const enabledChannels = Array.isArray(options.enabledChannels) ? options.enabledChannels : null;
   const provider = options.provider || null;
 
@@ -5871,6 +5950,7 @@ async function setupPoliciesWithSelection(
   const suggestions = computeSetupPresetSuggestions(tierName, {
     enabledChannels,
     webSearchConfig,
+    composioConfig,
     provider,
     knownPresetNames: allPresets.map((p) => p.name),
   });
@@ -6398,6 +6478,7 @@ function toSessionUpdates(
     preferredInferenceApi?: string | null;
     nimContainer?: string | null;
     webSearchConfig?: WebSearchConfig | null;
+    composioConfig?: ComposioConfig | null;
     policyPresets?: string[] | null;
     messagingChannels?: string[] | null;
   } = {},
@@ -6417,6 +6498,7 @@ function toSessionUpdates(
   if (updates.nimContainer !== undefined)
     normalized.nimContainer = toOptionalString(updates.nimContainer);
   if (updates.webSearchConfig !== undefined) normalized.webSearchConfig = updates.webSearchConfig;
+  if (updates.composioConfig !== undefined) normalized.composioConfig = updates.composioConfig;
   if (updates.policyPresets) normalized.policyPresets = updates.policyPresets;
   if (updates.messagingChannels) normalized.messagingChannels = updates.messagingChannels;
   return normalized;
@@ -6714,6 +6796,7 @@ async function onboard(opts: OnboardOptions = {}): Promise<void> {
     let preferredInferenceApi = session?.preferredInferenceApi || null;
     let nimContainer = session?.nimContainer || null;
     let webSearchConfig = session?.webSearchConfig || null;
+    let composioConfig = session?.composioConfig || null;
     let forceProviderSelection = false;
     while (true) {
       const resumeProviderSelection =
@@ -6781,12 +6864,13 @@ async function onboard(opts: OnboardOptions = {}): Promise<void> {
           model,
           credentialEnv,
           webSearchConfig,
+          composioConfig,
           enabledChannels: selectedMessagingChannels.length > 0 ? selectedMessagingChannels : null,
           sandboxName,
           notes: ["Sandbox build takes ~6 minutes on this host."],
         }),
       );
-      console.log("  Web search and messaging channels will be prompted next.");
+      console.log("  Web search, Composio, and messaging channels will be prompted next.");
       if (!isNonInteractive() && !dangerouslySkipPermissions) {
         const answer = (await promptOrDefault("  Apply this configuration? [Y/n]: ", null, "y"))
           .trim()
@@ -6826,14 +6910,19 @@ async function onboard(opts: OnboardOptions = {}): Promise<void> {
 
     const sandboxReuseState = getSandboxReuseState(sandboxName);
     const webSearchConfigChanged = Boolean(session?.webSearchConfig) !== Boolean(webSearchConfig);
+    const composioConfigChanged = Boolean(session?.composioConfig) !== Boolean(composioConfig);
     const resumeSandbox =
       resume &&
       !webSearchConfigChanged &&
+      !composioConfigChanged &&
       session?.steps?.sandbox?.status === "complete" &&
       sandboxReuseState === "ready";
     if (resumeSandbox) {
       if (webSearchConfig) {
         note("  [resume] Reusing Brave Search configuration already baked into the sandbox.");
+      }
+      if (composioConfig?.enabled) {
+        note("  [resume] Reusing Composio configuration already baked into the sandbox.");
       }
       selectedMessagingChannels = session?.messagingChannels ?? [];
       skippedStepMessage("sandbox", sandboxName);
@@ -6841,6 +6930,11 @@ async function onboard(opts: OnboardOptions = {}): Promise<void> {
       if (resume && session?.steps?.sandbox?.status === "complete") {
         if (webSearchConfigChanged) {
           note("  [resume] Web Search configuration changed; recreating sandbox.");
+          if (sandboxName) {
+            registry.removeSandbox(sandboxName);
+          }
+        } else if (composioConfigChanged) {
+          note("  [resume] Composio configuration changed; recreating sandbox.");
           if (sandboxName) {
             registry.removeSandbox(sandboxName);
           }
@@ -6857,6 +6951,7 @@ async function onboard(opts: OnboardOptions = {}): Promise<void> {
         }
       }
       let nextWebSearchConfig = webSearchConfig;
+      let nextComposioConfig = composioConfig;
       if (nextWebSearchConfig) {
         note("  [resume] Revalidating Brave Search configuration for sandbox recreation.");
         const braveApiKey = await ensureValidatedBraveSearchCredential();
@@ -6866,6 +6961,21 @@ async function onboard(opts: OnboardOptions = {}): Promise<void> {
         }
       } else {
         nextWebSearchConfig = await configureWebSearch(null);
+      }
+      if (nextComposioConfig?.enabled) {
+        const composioApiKey =
+          getCredential(composio.COMPOSIO_API_KEY_ENV) ||
+          normalizeCredentialValue(process.env[composio.COMPOSIO_API_KEY_ENV]);
+        if (!composioApiKey) {
+          if (isNonInteractive()) {
+            throw new Error(
+              "Composio is enabled, but COMPOSIO_API_KEY is not available in this process.",
+            );
+          }
+          nextComposioConfig = await configureComposio(null);
+        }
+      } else {
+        nextComposioConfig = await configureComposio(null);
       }
       startRecordedStep("sandbox", { sandboxName, provider, model });
       selectedMessagingChannels = await setupMessagingChannels();
@@ -6877,26 +6987,50 @@ async function onboard(opts: OnboardOptions = {}): Promise<void> {
         console.error("  Inference selection is incomplete; cannot create sandbox.");
         process.exit(1);
       }
-      sandboxName = await createSandbox(
-        gpu,
-        model,
-        provider,
-        preferredInferenceApi,
-        sandboxName,
-        nextWebSearchConfig,
-        selectedMessagingChannels,
-        fromDockerfile,
-        agent,
-        dangerouslySkipPermissions,
-      );
+      if (nextComposioConfig) {
+        sandboxName = await createSandbox(
+            gpu,
+            model,
+            provider,
+            preferredInferenceApi,
+            sandboxName,
+            nextWebSearchConfig,
+            selectedMessagingChannels,
+            fromDockerfile,
+            agent,
+            dangerouslySkipPermissions,
+            nextComposioConfig,
+          );
+      } else {
+        sandboxName = await createSandbox(
+            gpu,
+            model,
+            provider,
+            preferredInferenceApi,
+            sandboxName,
+            nextWebSearchConfig,
+            selectedMessagingChannels,
+            fromDockerfile,
+            agent,
+            dangerouslySkipPermissions,
+          );
+      }
       webSearchConfig = nextWebSearchConfig;
+      composioConfig = nextComposioConfig;
       // Persist model and provider after the sandbox entry exists in the registry.
       // updateSandbox() silently no-ops when the entry is missing, so this must
       // run after createSandbox() / registerSandbox() — not before. Fixes #1881.
       registry.updateSandbox(sandboxName, { model, provider });
       onboardSession.markStepComplete(
         "sandbox",
-        toSessionUpdates({ sandboxName, provider, model, nimContainer, webSearchConfig }),
+        toSessionUpdates({
+          sandboxName,
+          provider,
+          model,
+          nimContainer,
+          webSearchConfig,
+          composioConfig,
+        }),
       );
     }
 
@@ -6990,6 +7124,7 @@ async function onboard(opts: OnboardOptions = {}): Promise<void> {
               ? selectedMessagingChannels
               : recordedMessagingChannels,
           webSearchConfig,
+          composioConfig,
           provider,
           onSelection: (policyPresets) => {
             onboardSession.updateSession((current: Session) => {

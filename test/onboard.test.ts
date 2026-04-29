@@ -278,6 +278,7 @@ describe("onboard helpers", () => {
       "telegram",
       "jira",
       "outlook",
+      "composio",
       "local-inference",
     ];
 
@@ -332,6 +333,14 @@ describe("onboard helpers", () => {
         knownPresetNames: known,
       });
       expect(suggestions).toContain("brave");
+    });
+
+    it("adds composio when Composio SDK tools are enabled", () => {
+      const suggestions = computeSetupPresetSuggestions("restricted", {
+        composioConfig: { enabled: true },
+        knownPresetNames: known,
+      });
+      expect(suggestions).toContain("composio");
     });
 
     it("adds local-inference for local providers", () => {
@@ -5929,6 +5938,7 @@ const { createSandbox } = require(${onboardPath});
       model: "gemini-2.5-flash",
       credentialEnv: "GEMINI_API_KEY",
       webSearchConfig: { fetchEnabled: true },
+      composioConfig: { enabled: true },
       enabledChannels: ["telegram", "slack"],
       sandboxName: "my-assistant",
       notes: ["Sandbox build takes ~6 minutes on this host."],
@@ -5942,6 +5952,10 @@ const { createSandbox } = require(${onboardPath});
       "summary shows API key env var + storage location",
     );
     assert.ok(summary.includes("enabled"), "summary includes web-search enabled");
+    assert.ok(
+      summary.includes("Composio:      enabled (Tool Router discovery)"),
+      "summary includes Composio",
+    );
     assert.ok(summary.includes("telegram, slack"), "summary lists enabled channels");
     assert.ok(summary.includes("my-assistant"), "summary shows sandbox name");
     assert.ok(
@@ -5955,6 +5969,7 @@ const { createSandbox } = require(${onboardPath});
       model: "nvidia/nemotron-3-super-120b-a12b",
       credentialEnv: "NVIDIA_API_KEY",
       webSearchConfig: null,
+      composioConfig: null,
       enabledChannels: [],
       sandboxName: "test",
     });
@@ -5962,6 +5977,10 @@ const { createSandbox } = require(${onboardPath});
     assert.ok(
       bareSummary.includes("Web search:    disabled"),
       "null webSearch renders as 'disabled'",
+    );
+    assert.ok(
+      bareSummary.includes("Composio:      disabled"),
+      "null Composio renders as 'disabled'",
     );
 
     // No credentialEnv → "(not required for <provider>)" placeholder

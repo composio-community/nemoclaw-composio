@@ -90,6 +90,10 @@ function stageOptimizedSandboxBuildContext(
     path.join(rootDir, "scripts", "generate-openclaw-config.py"),
     path.join(stagedScriptsDir, "generate-openclaw-config.py"),
   );
+  fs.copyFileSync(
+    path.join(rootDir, "scripts", "composio-agent-instructions.md"),
+    path.join(stagedScriptsDir, "composio-agent-instructions.md"),
+  );
 
   return { buildCtx, stagedDockerfile };
 }

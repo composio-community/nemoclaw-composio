@@ -13,6 +13,7 @@ import path from "node:path";
 import { redactSensitiveText, redactUrl } from "./redact";
 import { isErrnoException } from "./errno";
 import type { WebSearchConfig } from "./web-search";
+import type { ComposioConfig } from "./composio";
 
 export const SESSION_VERSION = 1;
 export const SESSION_DIR = path.join(process.env.HOME || "/tmp", ".nemoclaw");
@@ -75,6 +76,7 @@ export interface Session {
   preferredInferenceApi: string | null;
   nimContainer: string | null;
   webSearchConfig: WebSearchConfig | null;
+  composioConfig: ComposioConfig | null;
   policyPresets: string[] | null;
   messagingChannels: string[] | null;
   metadata: SessionMetadata;
@@ -105,6 +107,7 @@ export interface SessionUpdates {
   preferredInferenceApi?: string;
   nimContainer?: string;
   webSearchConfig?: WebSearchConfig | null;
+  composioConfig?: ComposioConfig | null;
   policyPresets?: string[];
   messagingChannels?: string[];
   metadata?: { gatewayName?: string; fromDockerfile?: string | null };
@@ -185,6 +188,11 @@ function parseWebSearchConfig(value: SessionJsonValue | undefined): WebSearchCon
   return isObject(value) && value.fetchEnabled === true ? { fetchEnabled: true } : null;
 }
 
+function parseComposioConfig(value: SessionJsonValue | undefined): ComposioConfig | null {
+  if (!isObject(value) || value.enabled !== true) return null;
+  return { enabled: true };
+}
+
 function parseSessionMetadata(value: SessionJsonValue | undefined): SessionMetadata | undefined {
   if (!isObject(value)) return undefined;
   return {
@@ -259,6 +267,7 @@ export function createSession(overrides: Partial<Session> = {}): Session {
     nimContainer: overrides.nimContainer ?? null,
     webSearchConfig:
       overrides.webSearchConfig?.fetchEnabled === true ? { fetchEnabled: true } : null,
+    composioConfig: overrides.composioConfig?.enabled === true ? overrides.composioConfig : null,
     policyPresets: readStringArray(overrides.policyPresets),
     messagingChannels: readStringArray(overrides.messagingChannels),
     metadata: {
@@ -290,6 +299,7 @@ export function normalizeSession(data: Session | SessionJsonValue | undefined): 
     preferredInferenceApi: readString(data.preferredInferenceApi),
     nimContainer: readString(data.nimContainer),
     webSearchConfig: parseWebSearchConfig(data.webSearchConfig),
+    composioConfig: parseComposioConfig(data.composioConfig),
     policyPresets: readStringArray(data.policyPresets),
     messagingChannels: readStringArray(data.messagingChannels),
     lastStepStarted: readString(data.lastStepStarted),

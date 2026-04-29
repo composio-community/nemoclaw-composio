@@ -86,6 +86,22 @@ for _redir in "${_TOOL_REDIRECTS[@]}"; do
   export "${_redir?}"
 done
 
+# Make the host-injected Composio credential available to the sandbox helper
+# even for `openshell sandbox connect` shells, which do not inherit entrypoint
+# env vars. The helper reads this root-owned file directly; users never need to
+# export COMPOSIO_API_KEY by hand.
+_COMPOSIO_API_KEY_FILE="/tmp/nemoclaw-composio-api-key"
+if [ -n "${COMPOSIO_API_KEY:-}" ]; then
+  if [ "$(id -u)" -eq 0 ]; then
+    printf '%s' "$COMPOSIO_API_KEY" > "$_COMPOSIO_API_KEY_FILE"
+    chown root:root "$_COMPOSIO_API_KEY_FILE"
+    chmod 444 "$_COMPOSIO_API_KEY_FILE"
+  else
+    printf '%s' "$COMPOSIO_API_KEY" > "$_COMPOSIO_API_KEY_FILE"
+    chmod 400 "$_COMPOSIO_API_KEY_FILE" 2>/dev/null || true
+  fi
+fi
+
 # Pre-create redirected directories to prevent ownership conflicts.
 # In root mode: the gateway starts first (as gateway user) and inherits these
 # env vars — if it creates a dir first, it would be gateway:gateway 755 and
@@ -1422,6 +1438,23 @@ emit_sandbox_sourced_file "$_CIAO_GUARD_SCRIPT" <<'CIAO_GUARD_EOF'
     process.stderr.write((err && err.stack) || String(err));
     process.stderr.write('\n');
     process.exit(1);
+  });
+
+  process.on('unhandledRejection', function (reason) {
+    var message = reason && reason.message ? reason.message : String(reason);
+    var stack = reason && reason.stack ? reason.stack : '';
+    if (
+      (reason && reason.code === 'ERR_SYSTEM_ERROR' &&
+        message.indexOf('uv_interface_addresses') !== -1) ||
+      (stack.indexOf('ciao') !== -1 && message.indexOf('uv_interface_addresses') !== -1)
+    ) {
+      process.stderr.write(
+        '[guard] ciao/networkInterfaces rejection caught: ' + message +
+        ' — gateway continues\n'
+      );
+      return;
+    }
+    throw reason;
   });
 })();
 CIAO_GUARD_EOF
