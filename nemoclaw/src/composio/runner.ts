@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+/* v8 ignore file -- exercised as the sandbox-installed CLI helper. */
+
 import { readFileSync } from "node:fs";
 
 const COMPOSIO_API_KEY_FILE = "/tmp/nemoclaw-composio-api-key";
@@ -55,9 +57,11 @@ function readStdin(): Promise<string> {
     let data = "";
     process.stdin.setEncoding("utf8");
     process.stdin.on("data", (chunk) => {
-      data += chunk;
+      data += String(chunk);
     });
-    process.stdin.on("end", () => resolve(data));
+    process.stdin.on("end", () => {
+      resolve(data);
+    });
     process.stdin.on("error", reject);
   });
 }

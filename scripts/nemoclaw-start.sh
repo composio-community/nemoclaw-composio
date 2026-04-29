@@ -93,11 +93,11 @@ done
 _COMPOSIO_API_KEY_FILE="/tmp/nemoclaw-composio-api-key"
 if [ -n "${COMPOSIO_API_KEY:-}" ]; then
   if [ "$(id -u)" -eq 0 ]; then
-    printf '%s' "$COMPOSIO_API_KEY" > "$_COMPOSIO_API_KEY_FILE"
+    printf '%s' "$COMPOSIO_API_KEY" >"$_COMPOSIO_API_KEY_FILE"
     chown root:root "$_COMPOSIO_API_KEY_FILE"
     chmod 444 "$_COMPOSIO_API_KEY_FILE"
   else
-    printf '%s' "$COMPOSIO_API_KEY" > "$_COMPOSIO_API_KEY_FILE"
+    printf '%s' "$COMPOSIO_API_KEY" >"$_COMPOSIO_API_KEY_FILE"
     chmod 400 "$_COMPOSIO_API_KEY_FILE" 2>/dev/null || true
   fi
 fi

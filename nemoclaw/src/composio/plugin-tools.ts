@@ -80,7 +80,7 @@ export function registerComposioAgentTools(api: OpenClawPluginApi): void {
       name: fn.name,
       description: fn.description,
       parameters: fn.parameters,
-      async execute(_id: string, params: Record<string, PluginValue>) {
+      execute(_id: string, params: Record<string, PluginValue>) {
         return {
           content: [
             {

@@ -36,8 +36,8 @@ function runHelper(subcommand: string): HelperResult {
           "Re-run `nemoclaw onboard` and enable Composio when prompted.",
       };
     }
-    const stderr = typeof e.stderr === "string" ? e.stderr : e.stderr?.toString() ?? "";
-    const stdout = typeof e.stdout === "string" ? e.stdout : e.stdout?.toString() ?? "";
+    const stderr = typeof e.stderr === "string" ? e.stderr : (e.stderr?.toString() ?? "");
+    const stdout = typeof e.stdout === "string" ? e.stdout : (e.stdout?.toString() ?? "");
     const detail = (stderr || stdout || e.message || "unknown error").trim();
     return { ok: false, message: detail };
   }
@@ -130,7 +130,8 @@ function composioTools(): PluginCommandResult {
   if (names.length === 0) return { text: "**Composio**: no tools returned by the session." };
 
   const head = names.slice(0, 25);
-  const more = names.length > head.length ? `\n\n…and ${String(names.length - head.length)} more` : "";
+  const more =
+    names.length > head.length ? `\n\n…and ${String(names.length - head.length)} more` : "";
   return {
     text: ["**Composio Tools**", "", ...head.map((n) => `  - \`${n}\``), more]
       .filter(Boolean)
